@@ -240,6 +240,11 @@ func InitializeOffsetMaps() {
 		RWMutex: sync.RWMutex{},
 		name:    map[string]string{},
 	}
+	ptp4lSources = &ptp4lSourceTracker{
+		RWMutex: sync.RWMutex{},
+		sources: map[string]ptp4lSource{},
+		now:     time.Now,
+	}
 }
 
 // updatePTPMetrics ...

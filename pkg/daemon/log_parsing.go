@@ -89,11 +89,6 @@ func processParsedMetrics(process *ptpProcess, ptpMetrics *parser.Metrics) {
 	// Update PTP metrics using the parsed data
 	updatePTPMetrics(ptpMetrics.Source, process.name, iface, ptpMetrics.Offset, ptpMetrics.MaxOffset, ptpMetrics.FreqAdj, ptpMetrics.Delay)
 
-	// Update clock state metrics if available
-	if ptpMetrics.ClockState != "" {
-		updateClockStateMetrics(process.name, iface, string(ptpMetrics.ClockState))
-	}
-
 	configName := strings.Replace(strings.Replace(process.messageTag, "]", "", 1), "[", "", 1)
 	if configName != "" {
 		configName = strings.Split(configName, MessageTagSuffixSeperator)[0]
@@ -102,6 +97,22 @@ func processParsedMetrics(process *ptpProcess, ptpMetrics *parser.Metrics) {
 	// Handle master offset source tracking
 	if ptpMetrics.Source == "master" && configName != "" {
 		masterOffsetSource.set(configName, process.name)
+	}
+
+	// Track ptp4l source state used to qualify CLOCK_REALTIME.
+	if process.name == ptp4lProcessName && ptpMetrics.Source == parserconstants.Master &&
+		configName != "" && process.nodeProfile.Name != nil && ptpMetrics.ClockState != "" {
+		ptp4lSources.set(configName, *process.nodeProfile.Name, string(ptpMetrics.ClockState))
+	}
+
+	// Update clock state metrics if available
+	if ptpMetrics.ClockState != "" {
+		clockState := string(ptpMetrics.ClockState)
+		// Gate phc2sys on its upstream PTP source state.
+		if process.name == phc2sysProcessName && iface == clockRealTime {
+			clockState = ptp4lSources.phc2sysStateFromPtp4l(process, clockState)
+		}
+		updateClockStateMetrics(process.name, iface, clockState)
 	}
 
 	// if state is HOLDOVER do not update the state
@@ -181,6 +192,9 @@ func processParsedEvent(process *ptpProcess, ptpEvent *parser.PTPEvent) {
 			isFaulty := slaveIface.isFaulty(configName, interfaceName)
 			sourceIsPtp4l := masterOffsetSource.get(configName) == ptp4lProcessName
 			if isFaulty && sourceIsPtp4l {
+				if process.nodeProfile.Name != nil {
+					ptp4lSources.set(configName, *process.nodeProfile.Name, FREERUN)
+				}
 				// Set fault metrics and clear slave & master offset interfaces
 				updatePTPMetrics(master, process.name, masterOffsetIface.get(configName).alias, faultyOffset, faultyOffset, 0, 0)
 				updatePTPMetrics(phc, phc2sysProcessName, clockRealTime, faultyOffset, faultyOffset, 0, 0)

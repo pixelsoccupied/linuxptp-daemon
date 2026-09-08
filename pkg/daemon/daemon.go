@@ -794,6 +794,7 @@ func (dn *Daemon) applyNodePTPProfiles() error {
 	}
 
 	dn.stopAllProcesses()
+	ptp4lSources.reset()
 	// All process should have been stopped,
 	// clear process in process manager.
 	// Assigning processManager.process to nil releases
