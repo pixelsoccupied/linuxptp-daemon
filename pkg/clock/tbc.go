@@ -43,6 +43,7 @@ type LeadingClockParams struct {
 	inSyncConditionTimes     int
 	toFreeRunThreshold       int
 	MaxInSpecOffset          uint64
+	holdoverDisabled         bool
 	lastInSpec               bool
 	inSyncThresholdCounter   int
 	clockID                  string
@@ -663,6 +664,9 @@ func (c *TBC) getCalculatedHoldoverOffset() int64 {
 }
 
 func (c *TBC) freeRunCondition() bool {
+	if c.leadingClockData.holdoverDisabled && c.isSourceLostBC() {
+		return true
+	}
 	if c.leadingClockData.toFreeRunThreshold == 0 {
 		glog.Info("Leading clock free-run condition is pending initialization")
 		return true
@@ -774,6 +778,9 @@ func (c *TBC) updateLeadingClockData(ev event.Event) {
 		ls, found := ptp.Values[event.LeadingSource].(bool)
 		if found && ls {
 			c.leadingClockData.leadingInterface = ev.IFace
+			if timeout, ok := ptp.Values[event.LocalHoldoverTimeout].(uint64); ok {
+				c.leadingClockData.holdoverDisabled = timeout == 0
+			}
 		}
 		inSyncTh, found := ptp.Values[event.InSyncConditionThreshold].(uint64)
 		if found {

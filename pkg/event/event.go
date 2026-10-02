@@ -49,6 +49,7 @@ const (
 	ClockIDKey                ValueType = "clock-id"
 	TimePropertiesDataSet     ValueType = "time-props"
 	MaxInSpecOffset           ValueType = "max-in-spec"
+	LocalHoldoverTimeout      ValueType = "local-holdover-timeout"
 )
 
 // ValueTypeHelpTxt provides help text for PTP value types.

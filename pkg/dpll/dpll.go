@@ -682,15 +682,17 @@ func (d *DpllConfig) stateDecision() {
 			glog.Infof("non-leading DPLL %s is in holdover, reporting FREERUN", d.iface)
 		// TODO: GNSS holdover currently doesn't offer holdover out of spec. Tech Debt: should work the same as T-BC
 		// making transitions programmable by users
-		case !d.inSpec || (d.hasPTPAsSource() && math.Abs(float64(d.PhaseOffset())) > float64(LocalMaxHoldoverOffSet)):
-			glog.Infof("leading DPLL %s holdover out of spec (inSpec=%v, offset=%d, max=%d), state is FREERUN",
-				d.iface, d.inSpec, d.PhaseOffset(), LocalMaxHoldoverOffSet)
+		case d.LocalHoldoverTimeout == 0 || !d.inSpec ||
+			(d.hasPTPAsSource() && math.Abs(float64(d.PhaseOffset())) > float64(LocalMaxHoldoverOffSet)):
+			glog.Infof("leading DPLL %s cannot hold over (timeout=%d, inSpec=%v, offset=%d, max=%d), state is FREERUN",
+				d.iface, d.LocalHoldoverTimeout, d.inSpec, d.PhaseOffset(), LocalMaxHoldoverOffSet)
+			d.inSpec = false
 			d.state = event.PTP_FREERUN
 			d.phaseOffset = FaultyPhaseOffset
 			d.sourceLost = true
 			select {
 			case d.holdoverCloseCh <- true:
-				glog.Infof("closing holdover for %s since holdover is out of spec", d.iface)
+				glog.Infof("closing holdover for %s since holdover is unavailable", d.iface)
 			default:
 			}
 		case !d.onHoldover && !d.closing:
@@ -757,6 +759,7 @@ func (d *DpllConfig) sendDpllEvent() {
 				event.InSyncConditionTimes:     d.inSyncConditionTimes,
 				event.ToFreeRunThreshold:       d.LocalMaxHoldoverOffSet,
 				event.MaxInSpecOffset:          d.MaxInSpecOffset,
+				event.LocalHoldoverTimeout:     d.LocalHoldoverTimeout,
 			},
 			OutOfSpec:          !d.inSpec,
 			SourceLost:         d.sourceLost, // Here source lost is either GNSS or PPS , nmea string lost is captured by ts2phc
