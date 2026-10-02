@@ -684,15 +684,15 @@ func (d *DpllConfig) stateDecision() {
 		// making transitions programmable by users
 		case d.LocalHoldoverTimeout == 0 || !d.inSpec ||
 			(d.hasPTPAsSource() && math.Abs(float64(d.PhaseOffset())) > float64(LocalMaxHoldoverOffSet)):
-			glog.Infof("leading DPLL %s cannot hold over (timeout=%d, inSpec=%v, offset=%d, max=%d), state is FREERUN",
-				d.iface, d.LocalHoldoverTimeout, d.inSpec, d.PhaseOffset(), LocalMaxHoldoverOffSet)
+			glog.Infof("leading DPLL %s holdover out of spec (inSpec=%v, offset=%d, max=%d), state is FREERUN",
+				d.iface, d.inSpec, d.PhaseOffset(), LocalMaxHoldoverOffSet)
 			d.inSpec = false
 			d.state = event.PTP_FREERUN
 			d.phaseOffset = FaultyPhaseOffset
 			d.sourceLost = true
 			select {
 			case d.holdoverCloseCh <- true:
-				glog.Infof("closing holdover for %s since holdover is unavailable", d.iface)
+				glog.Infof("closing holdover for %s since holdover is out of spec", d.iface)
 			default:
 			}
 		case !d.onHoldover && !d.closing:
